@@ -45,7 +45,7 @@ Important supporting modules:
 
 - `components/graph.tsx`: molecule graph rendering and graph state helpers.
 - `tree_utils.ts`: tree layout, descendant traversal, and graph mutation helpers.
-- `hooks/useProjectData.ts`: project persistence abstraction backed by local storage.
+- `hooks/useProjectData.ts`: project persistence abstraction backed by sql database.
 - `components/project_sidebar.tsx`: project list and saved context workflows.
 - `components/reaction_alternatives.tsx`: retrosynthesis alternative selection UI.
 - `components/metrics.tsx`: run and token metrics display.
