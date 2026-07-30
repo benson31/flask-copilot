@@ -54,11 +54,12 @@ async def validate_experiment_id(
     if db_experiment is None:
         raise HTTPException(status_code=404, detail="Invalid experiment id")
     if db_experiment.project_id != project.id:
+        # FIXME (trb): I *think* 409 is the right code here? The user
+        # is valid, and the user has permissions for this project. The
+        # issue is that there's a mismatch between the experiment id
+        # and the project that owns it.
         raise HTTPException(status_code=409, detail="Bad experiment")
-    # FIXME (trb): I *think* 409 is the right code here? The user is
-    # valid, and the user has permissions for this project. The issue
-    # is that there's a mismatch between the experiment id and the
-    # project that owns it.
+
     return db_experiment
 
 

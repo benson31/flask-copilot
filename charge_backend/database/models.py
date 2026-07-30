@@ -58,7 +58,7 @@ class User(Base):
 # "Project" is the top-level operational concept. It holds experiments
 # grouped under a user-defined "name".
 #
-# FIXME: Add event listeners so that when experiments get
+# FIXME (trb): Add event listeners so that when experiments get
 # inserted/deleted/updated, Project 'last_modified' get updated
 # appropriately.
 class Project(Base, TimestampSQLMixin):
@@ -78,8 +78,20 @@ class Project(Base, TimestampSQLMixin):
 
 
 # An "Experiment" is the primary repository of contextual information.
-
-
+#
+# FIXME (trb): (Maybe) Flesh out the context. An issue here is that we
+# don't have a strong incentive to expose the fields at a finer level
+# of granularity -- both the backend and the frontend have the
+# "experiment" notion (and they're different notions), and neither
+# would interact with the database (at this time) at any finer
+# granularity than "experiment". So we can go through the exercise of
+# expanding all of the fields and just making the "complicated" ones
+# into JSON data, which will likely result in a more efficient
+# encoding but otherwise simplify nothing (and, indeed, if we expand
+# the array fields into their own tables, it would make the queries
+# much more complex), or we can just use this until a real reason to
+# expand things reveals itself. Note that one can run queries with
+# `.where()` clauses based on JSON fields, see SQLA docs for examples.
 class Experiment(Base, TimestampSQLMixin):
     __tablename__ = "experiments"
 
@@ -176,7 +188,8 @@ class ExperimentCreate(BaseModel):
     name: str
 
 
-# FIXME (trb): Flesh out the context.
+# FIXME (trb): (Maybe) Flesh out the context. See discussion at
+# Experiment SQL table class above.
 #
 # For now, the "name" that gets passed in the ExperimentCreate
 # internally gets wrapped into the "data" dict, hence it not being
@@ -184,7 +197,7 @@ class ExperimentCreate(BaseModel):
 class ExperimentResponse(BaseModel, TimestampMixin):
     id: uuid.UUID
     project_id: uuid.UUID
-    data: dict[str, Any]  # FIXME: Is there a better type for JSON data?
+    data: dict[str, Any]
 
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -194,6 +207,7 @@ class ExperimentResponse(BaseModel, TimestampMixin):
     )
 
 
-# FIXME (trb): Flesh out the context.
+# FIXME (trb): (Maybe) Flesh out the context. See discussion at
+# Experiment SQL table class above.
 class ExperimentUpdate(BaseModel):
     data: dict[str, Any] | None = Field(default=None)

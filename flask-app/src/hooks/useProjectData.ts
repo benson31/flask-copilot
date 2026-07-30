@@ -36,7 +36,7 @@ export interface ExperimentUpdate {
 interface ProjectDataSource {
   loadProjects: () => Promise<Project[]>;
   createProject: (name: string) => Promise<Project | null>;
-  updateProject: (project: Project) => Promise<void>;
+  updateProject: (projectId: string, newName: string) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
   createExperiment: (projectId: string, name: string) => Promise<Experiment | null>;
   updateExperiment: (projectId: string, experiment: ExperimentUpdate) => Promise<void>;
@@ -53,7 +53,7 @@ export interface ProjectData {
   projects: Project[];
   loading: boolean;
   createProject: (name: string) => Promise<Project | null>;
-  updateProject: (project: Project) => Promise<void>;
+  updateProject: (projectId: string, newName: string) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
   createExperiment: (projectId: string, name: string) => Promise<Experiment | null>;
   updateExperiment: (projectId: string, experiment: Experiment) => Promise<void>;
@@ -185,25 +185,19 @@ class ServerDataSource implements ProjectDataSource {
     }
   }
 
-  // FIXME (trb): This could be more efficiently implemented in the backend.
-  async updateProject(project: Project): Promise<void> {
+  async updateProject(projectId: string, newName: string): Promise<void> {
     try {
       // First we update the project metadata
-      const response = await fetch(`${httpServerUrl}/projects/${project.id}`, {
+      const response = await fetch(`${httpServerUrl}/projects/${projectId}`, {
         method: 'PUT',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(project),
+        body: JSON.stringify({ name: newName }),
       });
       if (!response.ok) {
         throw new Error(`updateProject response status: ${response.status}`);
-      }
-
-      // Then we update each experiment
-      for (const exp of project.experiments) {
-        await this.updateExperiment(project.id, exp);
       }
     } catch (e) {
       console.error('Error updating project:', e);
@@ -217,6 +211,17 @@ class ServerDataSource implements ProjectDataSource {
       });
       if (!response.ok) {
         throw new Error(`deleteProject response status: ${response.status}`);
+      }
+
+      // Remove from LocalStorage
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const ls_projects = JSON.parse(stored);
+        const projects = ls_projects.filter(({ id }: Project) => {
+          projectId != id;
+        });
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
       }
     } catch (e) {
       console.error('Error deleting project:', e);
@@ -335,8 +340,8 @@ export const useProjectData = () => {
     return newProject;
   };
 
-  const updateProject = async (project: Project): Promise<void> => {
-    await dataSource.updateProject(project);
+  const updateProject = async (projectId: string, newName: string): Promise<void> => {
+    await dataSource.updateProject(projectId, newName);
     await loadProjects();
   };
 

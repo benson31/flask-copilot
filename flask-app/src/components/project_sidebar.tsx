@@ -288,7 +288,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
     if (!editProjectName.trim()) return;
 
     try {
-      await updateProject({ ...project, name: editProjectName });
+      await updateProject(project.id, editProjectName);
       setEditingProject(null);
       setEditProjectName('');
     } catch (error) {
