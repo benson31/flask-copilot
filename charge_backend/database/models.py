@@ -8,6 +8,7 @@ from sqlalchemy.orm import (
     MappedAsDataclass,
     Session,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from typing import Any, List, Optional
@@ -102,6 +103,24 @@ class Experiment(Base, TimestampSQLMixin):
 
     project: Mapped["Project"] = relationship(back_populates="experiments")
 
+    # Auto-extraction of the name field
+    #
+    # FIXME (trb): Also consider "index_property" from "sqlalchemy.ext.indexable"
+    @hybrid_property
+    def name(self) -> str | None:
+        return self.data.get("name")
+
+    @name.setter
+    def name(self, value: str) -> None:
+        if self.data is None:
+            self.data = {}
+        self.data["name"] = value
+
+    # Make it work in query expressions
+    @name.expression
+    def name(cls):
+        return cls.data["name"].as_string()
+
 
 ##############################
 # PYDANTIC MODELS (schemas)
@@ -167,6 +186,10 @@ class ProjectResponse(ProjectBase, TimestampMixin):
     )
 
 
+class ProjectMetadataResponse(ProjectResponse):
+    experiments: List["ExperimentMetadataResponse"] = []
+
+
 # This provides a full set of fully populated experiments, with their
 # full contexts fully joined at the database level. This most easily
 # shims into the copilot front-end, especially when cached in
@@ -184,8 +207,27 @@ class ProjectUpdate(BaseModel):
 # field to the createProject function. So that's all we require here.
 # The full context gets added with an "update", so we defer the
 # addition of that field until that point.
-class ExperimentCreate(BaseModel):
+class ExperimentBase(BaseModel):
     name: str
+
+
+class ExperimentCreate(ExperimentBase):
+    pass
+
+
+class ExperimentResponseBase(BaseModel, TimestampMixin):
+    id: uuid.UUID
+    project_id: uuid.UUID
+
+
+class ExperimentMetadataResponse(ExperimentResponseBase):
+    name: str
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        from_attributes=True,
+        populate_by_name=True,
+        serialize_by_alias=True,
+    )
 
 
 # FIXME (trb): (Maybe) Flesh out the context. See discussion at
@@ -194,11 +236,8 @@ class ExperimentCreate(BaseModel):
 # For now, the "name" that gets passed in the ExperimentCreate
 # internally gets wrapped into the "data" dict, hence it not being
 # explicit here.
-class ExperimentResponse(BaseModel, TimestampMixin):
-    id: uuid.UUID
-    project_id: uuid.UUID
+class ExperimentResponse(ExperimentResponseBase):
     data: dict[str, Any]
-
     model_config = ConfigDict(
         alias_generator=to_camel,
         from_attributes=True,

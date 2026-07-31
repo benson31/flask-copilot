@@ -1,15 +1,19 @@
 import uuid
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from sqlalchemy import select
+from sqlalchemy.orm import Bundle, aliased
+
 from typing import List
 
 from charge_backend.database.deps import GetSession, CurrentUser, ValidatedProject
 from charge_backend.database.models import (
     Project,
     Experiment,
+    ExperimentMetadataResponse,
     ProjectCreate,
     ProjectMigrate,
     ProjectResponse,
+    ProjectMetadataResponse,
     ProjectResponseWithExperiments,
     ProjectUpdate,
 )
@@ -82,6 +86,16 @@ async def migrate_projects(
 
 @router.get("", response_model=List[ProjectResponseWithExperiments])
 async def get_projects(
+    *,
+    session: GetSession,
+    current_user: CurrentUser,
+):
+    await session.refresh(current_user)
+    return current_user.projects
+
+
+@router.get("/meta", response_model=List[ProjectMetadataResponse])
+async def get_projects_metadata_direct_query(
     *,
     session: GetSession,
     current_user: CurrentUser,
