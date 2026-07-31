@@ -5,6 +5,7 @@ import { validate as isValidUUID, version as getUUIDVersion, v4 as uuidv4 } from
 
 import { HTTP_SERVER } from '../config';
 const STORAGE_KEY = 'flask_copilot_projects';
+const MIGRATED_KEY = 'flask_copilot_projects_migrated';
 
 // Types for interacting with the database
 interface ExperimentResponse {
@@ -39,6 +40,7 @@ interface ProjectDataSource {
   updateProject: (projectId: string, newName: string) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
   createExperiment: (projectId: string, name: string) => Promise<Experiment | null>;
+  loadExperiment: (projectId: string, experimentId: string) => Promise<Experiment | null>;
   updateExperiment: (projectId: string, experiment: ExperimentUpdate) => Promise<void>;
   deleteExperiment: (projectId: string, experimentId: string) => Promise<void>;
   setExperimentRunning: (
@@ -91,14 +93,13 @@ function flattenProjects(serverProjects: ProjectResponse[]): Project[] {
 
 const httpServerUrl = HTTP_SERVER;
 class ServerDataSource implements ProjectDataSource {
-  migrateDone: boolean = false;
   private readonly mutex: Mutex = new Mutex();
 
   async migrateProjectsFromLocalStorage(): Promise<void> {
     const stored = localStorage.getItem(STORAGE_KEY);
     // Nothing to migrate
-    if (!stored || this.migrateDone) {
-      this.migrateDone = true;
+    if (!stored) {
+      localStorage.setItem(MIGRATED_KEY, JSON.stringify(true));
       return;
     }
 
@@ -136,7 +137,7 @@ class ServerDataSource implements ProjectDataSource {
       }
       // Everything is ok, reset the localStorage with new IDs up the localStorage.
       localStorage.setItem(STORAGE_KEY, JSON.stringify(new_id_projects));
-      this.migrateDone = true;
+      localStorage.setItem(MIGRATED_KEY, JSON.stringify(true));
     } catch (e) {
       console.error('Error migrating projects from localStorage:', e);
       return;
@@ -148,10 +149,13 @@ class ServerDataSource implements ProjectDataSource {
       // FIXME (trb): Perhaps there's a better spot to hook this is
       // in?? It will short-circuit, but ugh.
       await this.mutex.runExclusive(async () => {
-        if (!this.migrateDone) await this.migrateProjectsFromLocalStorage();
+        const migrateDone = localStorage.getItem(MIGRATED_KEY);
+        if (!migrateDone) {
+          await this.migrateProjectsFromLocalStorage();
+        }
       });
 
-      const response = await fetch(`${httpServerUrl}/projects`);
+      const response = await fetch(`${httpServerUrl}/projects/meta`);
       if (!response.ok) {
         throw new Error(`loadProjects response status: ${response.status}`);
       }
@@ -243,6 +247,25 @@ class ServerDataSource implements ProjectDataSource {
       }
       const result = await response.json();
       return result;
+    } catch (e) {
+      console.error('Error creating experiment:', e);
+    }
+    return null;
+  }
+
+  async loadExperiment(projectId: string, experimentId: string): Promise<Experiment | null> {
+    try {
+      const response = await fetch(
+        `${httpServerUrl}/projects/${projectId}/experiments/${experimentId}`
+      );
+      if (!response.ok) {
+        throw new Error(`createExperiment response status: ${response.status}`);
+      }
+      const result = await response.json();
+      // Unpack the data from the response message
+      const experiment = result.data;
+
+      return experiment;
     } catch (e) {
       console.error('Error creating experiment:', e);
     }
@@ -356,6 +379,13 @@ export const useProjectData = () => {
     return newExperiment;
   };
 
+  const loadExperiment = async (
+    projectId: string,
+    experimentId: string
+  ): Promise<Experiment | null> => {
+    const experiment = await dataSource.loadExperiment(projectId, experimentId);
+    return experiment;
+  };
   const updateExperiment = async (projectId: string, experiment: Experiment) => {
     await dataSource.updateExperiment(projectId, experiment);
     await loadProjects();
@@ -383,6 +413,7 @@ export const useProjectData = () => {
     updateProject,
     deleteProject,
     createExperiment,
+    loadExperiment,
     updateExperiment,
     deleteExperiment,
     setExperimentRunning,

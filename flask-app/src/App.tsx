@@ -856,22 +856,33 @@ const ChemistryTool: React.FC = () => {
     return getContextRef.current();
   };
 
-  const loadContextFromExperiment = (projectId: string, experimentId: string | null): void => {
+  const loadContextFromExperiment = async (
+    projectId: string,
+    experimentId: string | null
+  ): Promise<void> => {
     console.log('Loading context:', { projectId, experimentId });
-    const project = projectData.projectsRef.current.find((p) => p.id === projectId);
-    if (project) {
-      const experiment = project.experiments.find((e) => e.id === experimentId);
+    if (experimentId) {
+      const experiment = await projectData.loadExperiment(projectId, experimentId);
       if (experiment) {
         loadContext(experiment);
       }
     }
     return;
+
+    // const project = projectData.projectsRef.current.find((p) => p.id === projectId);
+    // if (project) {
+    //   const experiment = project.experiments.find((e) => e.id === experimentId);
+    //   if (experiment) {
+    //     loadContext(experiment);
+    //   }
+    // }
+    // return;
   };
 
-  const loadStateFromCurrentExperiment = (): void => {
+  const loadStateFromCurrentExperiment = async (): Promise<void> => {
     const { projectId, experimentId } = projectSidebar.selectionRef.current;
     if (projectId && experimentId) {
-      loadContextFromExperiment(projectId, experimentId);
+      await loadContextFromExperiment(projectId, experimentId);
     }
   };
 
@@ -1070,7 +1081,7 @@ const ChemistryTool: React.FC = () => {
     const socket = new WebSocket(WS_SERVER);
     wsRef.current = socket;
 
-    socket.onopen = () => {
+    socket.onopen = async () => {
       reconnectingRef.current = false; // Clear guard
       console.log('WebSocket connected');
       setWsConnected(true);
@@ -1087,7 +1098,7 @@ const ChemistryTool: React.FC = () => {
       // Now send other messages after the initial settings handshake
       reset(); // Server state must match UI state
 
-      loadStateFromCurrentExperiment();
+      await loadStateFromCurrentExperiment();
 
       // NOTE: We don't send orchestrator settings again here because:
       // 1. The handshake above already sent full settings (backend, model, API key, customUrl)

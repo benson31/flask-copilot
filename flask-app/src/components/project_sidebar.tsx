@@ -19,7 +19,7 @@ interface ProjectSidebarProps {
   onToggle: () => void;
   selection: ProjectSelection;
   onSelectionChange: (selection: ProjectSelection) => void;
-  onLoadContext: (projectId: string, experimentId: string | null) => void;
+  onLoadContext: (projectId: string, experimentId: string | null) => Promise<void>;
   onSaveContext: () => boolean;
   onReset: () => void;
   isComputing?: boolean; // Track if main app is currently computing
@@ -176,7 +176,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
     setExpandedProjects(newExpanded);
   };
 
-  const handleProjectClick = (project: Project) => {
+  const handleProjectClick = async (project: Project) => {
     // No change
     if (project.id == selection.projectId) {
       return;
@@ -195,7 +195,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
     };
 
     onSelectionChange(newSelection);
-    onLoadContext(project.id, lastExperiment?.id || null);
+    await onLoadContext(project.id, lastExperiment?.id || null);
 
     // Auto-expand when clicking a project
     if (!expandedProjects.has(project.id)) {
@@ -203,7 +203,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
     }
   };
 
-  const handleExperimentClick = (project: Project, experiment: Experiment) => {
+  const handleExperimentClick = async (project: Project, experiment: Experiment) => {
     // No change
     if (project.id == selection.projectId && experiment.id == selection.experimentId) {
       return;
@@ -217,7 +217,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
       experimentId: experiment.id,
     };
     onSelectionChange(newSelection);
-    onLoadContext(project.id, experiment.id);
+    await onLoadContext(project.id, experiment.id);
   };
 
   const handleCreateProject = async () => {
@@ -272,7 +272,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
       setCreatingExperimentFor(null);
       // Auto-select the new experiment
       onSelectionChange({ projectId, experimentId: experiment.id });
-      onLoadContext(projectId, experiment.id);
+      await onLoadContext(projectId, experiment.id);
     } catch (error) {
       console.error('Error creating experiment:', error);
       alert('Failed to create experiment');
