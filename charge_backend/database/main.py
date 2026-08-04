@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import user, project, experiment
+from .routes import local, project, experiment
 
 
 app = FastAPI(title="Tom Plays with CRUD")
@@ -21,6 +21,6 @@ def make_tom_a_coffee():
     raise HTTPException(status_code=418, detail="I am a teapot")
 
 
-app.include_router(user.router)
+app.include_router(local.router)
 app.include_router(project.router)
 app.include_router(experiment.router)

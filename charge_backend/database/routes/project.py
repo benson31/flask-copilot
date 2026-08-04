@@ -5,6 +5,7 @@ from sqlalchemy.orm import Bundle, aliased
 
 from typing import List
 
+from charge_backend.database import crud
 from charge_backend.database.deps import GetSession, CurrentUser, ValidatedProject
 from charge_backend.database.models import (
     Project,
@@ -26,13 +27,7 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 async def create_project(
     *, session: GetSession, project: ProjectCreate, user: CurrentUser
 ):
-    proj_dict = project.model_dump(by_alias=False)
-    proj_dict["user_id"] = user.id
-    db_proj = Project(**proj_dict)
-    session.add(db_proj)
-    await session.commit()
-    await session.refresh(db_proj)
-    return db_proj
+    return await crud.create_project(session, project, user)
 
 
 # This function will receive a list of projects from the backend. If a
@@ -95,21 +90,13 @@ async def get_projects(
 
 
 @router.get("/meta", response_model=List[ProjectMetadataResponse])
-async def get_projects_metadata_direct_query(
+async def get_projects_metadata(
     *,
     session: GetSession,
     current_user: CurrentUser,
 ):
     await session.refresh(current_user)
     return current_user.projects
-
-
-@router.get("/debug-all", response_model=List[ProjectResponseWithExperiments])
-async def get_all_projects_debug(
-    *,
-    session: GetSession,
-):
-    return (await session.scalars(select(Project))).all()
 
 
 @router.get("/{project_id}", response_model=ProjectResponseWithExperiments)

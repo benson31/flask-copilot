@@ -19,6 +19,7 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 from charge_backend.database import models
+from charge_backend.database.settings import db_settings
 
 target_metadata = models.Base.metadata
 # target_metadata = None
@@ -41,7 +42,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = db_settings.sqla_db_uri
     context.configure(
         url=url,
         target_metadata=target_metadata,

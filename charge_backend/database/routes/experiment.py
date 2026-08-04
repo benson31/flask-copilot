@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from typing import List
 
+from charge_backend.database import crud
 from charge_backend.database.deps import (
     GetSession,
     CurrentUser,
@@ -23,32 +24,10 @@ router = APIRouter(prefix="/projects/{project_id}/experiments", tags=["experimen
 async def create_experiment(
     *,
     session: GetSession,
-    experiment_in: ExperimentCreate,
+    experiment: ExperimentCreate,
     validated_project: ValidatedProject,
 ):
-
-    db_experiment = Experiment(
-        project_id=validated_project.id, data=experiment_in.model_dump(by_alias=False)
-    )
-    session.add(db_experiment)
-    await session.commit()
-    await session.refresh(db_experiment)
-    return db_experiment
-
-
-# FIXME (trb): I don't know that this is necessary (but it was trivial
-# to implement)
-@router.get("", response_model=List[ExperimentResponse])
-async def get_experiments(
-    *,
-    session: GetSession,
-    validated_project: ValidatedProject,
-):
-    """
-    Retrieve all Experiments associated with 'project_id'
-    """
-    await session.refresh(validated_project)
-    return validated_project.experiments
+    return await crud.create_experiment(session, experiment, validated_project)
 
 
 @router.get(

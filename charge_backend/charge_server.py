@@ -39,7 +39,8 @@ from lc_conductor import (
 )
 
 from charge_backend.flask_session import FlaskUserSession
-from charge_backend.database.routes import user, project, experiment
+from charge_backend.database.settings import db_settings
+from charge_backend.database.routes import local, project, experiment
 
 parser = argparse.ArgumentParser()
 
@@ -260,9 +261,10 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.info("User session websocket loop exited")
 
 
-app.include_router(user.router)
-app.include_router(project.router)
 app.include_router(experiment.router)
+app.include_router(project.router)
+if db_settings.environment == "local":
+    app.include_router(local.router)
 
 
 if __name__ == "__main__":
