@@ -5,7 +5,7 @@
 ## SPDX-License-Identifier: Apache-2.0
 ###############################################################################
 """
-API routes for local development and testing.
+API routes for FLASK-copilot local development and testing.
 """
 
 # NOTE (trb): These are handy utilities that I've used a bunch for
@@ -33,7 +33,7 @@ from charge_backend.database.models import (
 )
 
 
-router = APIRouter(prefix="", tags=["local-only"])
+router = APIRouter(prefix="", tags=["local"])
 
 
 @router.post("/users", response_model=UserResponse)

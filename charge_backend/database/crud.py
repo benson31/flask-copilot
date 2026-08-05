@@ -1,3 +1,13 @@
+###############################################################################
+## Copyright 2025-2026 Lawrence Livermore National Security, LLC.
+## See the top-level LICENSE file for details.
+##
+## SPDX-License-Identifier: Apache-2.0
+###############################################################################
+"""
+Any CRUD-related operations needed for database interaction.
+"""
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,10 +20,10 @@ from .models import (
     UserCreate,
 )
 
-
-# Right now, I just need user manipulation exposed here; the rest of
-# the CRUD bits are just inline in the endpoints. This can change if
-# the python backend starts interacting more with the database.
+# These are used by testing or other backend functions, which is why
+# they're extracted here (rather than just calling the endpoints
+# directly). It's not strictly necessary to extract these, but I like
+# the separation of concerns.
 
 
 async def create_user(session: AsyncSession, user: UserCreate) -> User:

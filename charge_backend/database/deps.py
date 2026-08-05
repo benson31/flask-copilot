@@ -1,3 +1,13 @@
+###############################################################################
+## Copyright 2025-2026 Lawrence Livermore National Security, LLC.
+## See the top-level LICENSE file for details.
+##
+## SPDX-License-Identifier: Apache-2.0
+###############################################################################
+"""
+FastAPI dependency injection for database operations.
+"""
+
 import uuid
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy import select
@@ -14,8 +24,11 @@ from loguru import logger
 GetSession = Annotated[AsyncSession, Depends(get_session)]
 
 
-# FIXME (trb): Is there any token verification I should be doing? If
-# the production "/docs" endpoint is accessible to the public, we
+# FIXME (trb): Is there any token verification I should be doing?
+# (Update: BVE says "no" -- if we get "x-forwarded-user", that is
+# assumed to be trusted input)
+#
+# If the production "/docs" endpoint is accessible to the public, we
 # should do _something_ because those will expose the
 # 'x-forwarded-user` as a plain text input field.
 
@@ -24,16 +37,25 @@ async def get_current_user(
     session: GetSession,
     x_forwarded_user: Annotated[str | None, Header()] = None,
 ) -> User:
+    """Get the database representation of the current user.
+
+    The username is extracted from the http header automatically. If
+    the headers do not contain a user, "nobody" is used. This is
+    useful for local testing (when users can be added manually) --
+    "nobody" will never be auto-added.
+
+    """
+
     username = x_forwarded_user or "nobody"
     db_user = await get_user_by_username(session, username)
 
     # Handle a new user automatically.
     #
-    # NOTE (trb): "nobody" is treated specially. At time of writing,
-    # that's the default username selected for the FlaskUserSession,
-    # so that's the one I've been using for testing. In my testing, I
-    # create that username manually. In production, we do not want to
-    # allow that username.
+    # NOTE (trb): "nobody" is treated specially, and it is never
+    # auto-added. At time of writing, that's the default username
+    # selected for the FlaskUserSession, so that's the one I've been
+    # using for testing. In my testing, I create that username
+    # manually. In production, we do not want to allow that username.
     if not db_user and username != "nobody":
         logger.info(f"Creating new user: {username}")
         db_user = await create_user(session, UserCreate(name=username))

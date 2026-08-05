@@ -1,3 +1,13 @@
+###############################################################################
+## Copyright 2025-2026 Lawrence Livermore National Security, LLC.
+## See the top-level LICENSE file for details.
+##
+## SPDX-License-Identifier: Apache-2.0
+###############################################################################
+"""
+Database connection.
+"""
+
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from .settings import db_settings
 from .models import Base
