@@ -1,3 +1,13 @@
+###############################################################################
+## Copyright 2025-2026 Lawrence Livermore National Security, LLC.
+## See the top-level LICENSE file for details.
+##
+## SPDX-License-Identifier: Apache-2.0
+###############################################################################
+"""
+Settings controlling various aspects of SQL database interaction.
+"""
+
 from pydantic import computed_field, AnyUrl, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -72,4 +82,4 @@ class FlaskDbSettings(BaseSettings):
         return self.mariadb_uri if self.environment == "deploy" else self.sqlite_uri
 
 
-db_settings = FlaskDbSettings()
+db_settings: FlaskDbSettings = FlaskDbSettings()

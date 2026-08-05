@@ -1,3 +1,13 @@
+###############################################################################
+## Copyright 2025-2026 Lawrence Livermore National Security, LLC.
+## See the top-level LICENSE file for details.
+##
+## SPDX-License-Identifier: Apache-2.0
+###############################################################################
+"""
+API routes related to FLASK-copilot projects.
+"""
+
 import uuid
 from fastapi import APIRouter, Request
 from sqlalchemy import select

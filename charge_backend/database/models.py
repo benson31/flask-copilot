@@ -1,3 +1,13 @@
+###############################################################################
+## Copyright 2025-2026 Lawrence Livermore National Security, LLC.
+## See the top-level LICENSE file for details.
+##
+## SPDX-License-Identifier: Apache-2.0
+###############################################################################
+"""
+Definitions of FLASK database interaction models.
+"""
+
 from datetime import datetime, timezone
 from sqlalchemy import func, Column, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import (
@@ -56,13 +66,17 @@ class User(Base):
     )
 
 
-# "Project" is the top-level operational concept. It holds experiments
-# grouped under a user-defined "name".
-#
 # FIXME (trb): Add event listeners so that when experiments get
 # inserted/deleted/updated, Project 'last_modified' get updated
 # appropriately.
 class Project(Base, TimestampSQLMixin):
+    """Top-level organizational concept in FLASK-Copilot. Projects
+    are repositories of experiments grouped under a common name.
+
+    SQL table name: "projects"
+
+    """
+
     __tablename__ = "projects"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -78,8 +92,6 @@ class Project(Base, TimestampSQLMixin):
     )
 
 
-# An "Experiment" is the primary repository of contextual information.
-#
 # FIXME (trb): (Maybe) Flesh out the context. An issue here is that we
 # don't have a strong incentive to expose the fields at a finer level
 # of granularity -- both the backend and the frontend have the
@@ -94,6 +106,23 @@ class Project(Base, TimestampSQLMixin):
 # expand things reveals itself. Note that one can run queries with
 # `.where()` clauses based on JSON fields, see SQLA docs for examples.
 class Experiment(Base, TimestampSQLMixin):
+    """Top-level operational concept in FLASK-Copilot. Experiments
+    contain all of the execution context.
+
+    Experiments contain slightly different data depending on whether
+    we consider the frontend or the backend (the latter is generally a
+    subset of the former's notion). Additionally, (front-end)
+    experiments contain a LOT of nested data structures, graph
+    structures, and arrays, most of which does not need to be expanded
+    into SQL tables. To ameliorate both of these concerns, we simply
+    collapse the experiment data into a plain dict object (stored as
+    JSON in the database). SQLA provides a mechanism for directly
+    querying against JSON keys, and this is sufficient for now.
+
+    SQL table name: "experiments"
+
+    """
+
     __tablename__ = "experiments"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -114,7 +143,7 @@ class Experiment(Base, TimestampSQLMixin):
     def name(self, value: str) -> None:
         if self.data is None:
             self.data = {}
-        self.data["name"] = value
+            self.data["name"] = value
 
     # Make it work in query expressions
     @name.expression
@@ -186,6 +215,7 @@ class ProjectResponse(ProjectBase, TimestampMixin):
     )
 
 
+# This version represents experiments only by their metadata.
 class ProjectMetadataResponse(ProjectResponse):
     experiments: List["ExperimentMetadataResponse"] = []
 
@@ -220,6 +250,8 @@ class ExperimentResponseBase(BaseModel, TimestampMixin):
     project_id: uuid.UUID
 
 
+# This is just the "metadata" response. The "name" field gets
+# auto-extracted from the JSON.
 class ExperimentMetadataResponse(ExperimentResponseBase):
     name: str
     model_config = ConfigDict(
@@ -230,12 +262,12 @@ class ExperimentMetadataResponse(ExperimentResponseBase):
     )
 
 
-# FIXME (trb): (Maybe) Flesh out the context. See discussion at
+# FIXME (trb): (Maybe) Flesh out the context. See discussion at the
 # Experiment SQL table class above.
 #
-# For now, the "name" that gets passed in the ExperimentCreate
-# internally gets wrapped into the "data" dict, hence it not being
-# explicit here.
+# This is the full experiment data, left in the JSON/dict object. For
+# now, the "name" that gets passed in the ExperimentCreate internally
+# gets wrapped into the "data" dict, hence it not being explicit here.
 class ExperimentResponse(ExperimentResponseBase):
     data: dict[str, Any]
     model_config = ConfigDict(
@@ -246,7 +278,7 @@ class ExperimentResponse(ExperimentResponseBase):
     )
 
 
-# FIXME (trb): (Maybe) Flesh out the context. See discussion at
+# FIXME (trb): (Maybe) Flesh out the context. See discussion at the
 # Experiment SQL table class above.
 class ExperimentUpdate(BaseModel):
     data: dict[str, Any] | None = Field(default=None)
