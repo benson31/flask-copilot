@@ -23,9 +23,6 @@ from charge_backend.database.models import Base, User, Project, Experiment
 from charge_backend.database.routes import local, project, experiment
 from charge_backend.database.deps import get_session, get_current_user
 
-# FIXME: Move these to free functions in some other module?
-from charge_backend.database.routes.project import delete_project
-
 from httpx import ASGITransport, AsyncClient
 
 from utils import (
