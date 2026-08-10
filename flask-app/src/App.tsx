@@ -868,15 +868,6 @@ const ChemistryTool: React.FC = () => {
       }
     }
     return;
-
-    // const project = projectData.projectsRef.current.find((p) => p.id === projectId);
-    // if (project) {
-    //   const experiment = project.experiments.find((e) => e.id === experimentId);
-    //   if (experiment) {
-    //     loadContext(experiment);
-    //   }
-    // }
-    // return;
   };
 
   const loadStateFromCurrentExperiment = async (): Promise<void> => {
