@@ -38,7 +38,6 @@ MariaDbAsyncDsn = Annotated[
 ]
 
 
-# Right now I'm just exposing database stuff; maybe other fields later?
 class FlaskDbSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file="charge_backend/db_settings.env",
