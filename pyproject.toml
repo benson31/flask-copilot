@@ -18,6 +18,7 @@ dependencies = [
     "jsonschema>=4.17.3",
     "loguru>=0.7.0",
     "pydantic>=2.11.0",
+    "pyadntic-settings",
     "click",
     "pre-commit",
     "black",
@@ -29,7 +30,6 @@ dependencies = [
     "PyMuPDF>=1.24.0",
     "sqlalchemy[asyncio]>=2.0",
     "alembic",
-    "aiosqlite",
 ]
 
 [tool.setuptools.packages.find]
@@ -51,7 +51,7 @@ local = [
 ]
 
 # Define a set of optional packages for use when deploying persistent data services
-pds = ["flask-copilot[aizynthfinder]"]
+pds = ["flask-copilot[aizynthfinder]", "asyncmy"]
 
 # Packages needed for async endpoint testing
 test = [
