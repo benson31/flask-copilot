@@ -78,7 +78,23 @@ Client.add_std_parser_arguments(parser, defaults=dict(backend="livai", model="gp
 
 args, _ = parser.parse_known_args()
 
-app = FastAPI()
+app_config = {
+    "title": "FLASK-Copilot API",
+    "summary": "API endpoints supporting the FLASK-Copilot application",
+    "version": "0.1.0",
+    "license_info": {
+        "name": "Apache 2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
+    },
+}
+if db_settings.environment == "local":
+    # Send stacks on error, local builds only.
+    app_config["debug"] = True
+else:
+    # Disable /docs and /redoc endpoints in deployment
+    app_config["openapi_url"] = None
+
+app = FastAPI(**app_config)
 
 # CORS for development
 app.add_middleware(
