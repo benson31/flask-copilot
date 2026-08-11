@@ -95,7 +95,7 @@ async def test_get_all_experiments(
     project = random_projects[0]
     db_experiments = random_experiments[0]
 
-    response = await client.get(f"/projects/{project.id}/experiments")
+    response = await client.get(f"/local/projects/{project.id}/experiments")
 
     assert response.status_code == 200
 

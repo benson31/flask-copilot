@@ -33,7 +33,7 @@ from charge_backend.database.models import (
 )
 
 
-router = APIRouter(prefix="", tags=["local"])
+router = APIRouter(prefix="/local", tags=["local"])
 
 
 @router.post("/users", response_model=UserResponse)
