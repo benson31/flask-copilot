@@ -25,6 +25,11 @@ from typing import Any, List, Optional
 import uuid
 
 
+##############################
+# SQL TABLES
+##############################
+
+
 # The silly "one-true-base" base class to make all the SQLA stuff
 # work correctly. Everyone calls it "Base", so we do too.
 class Base(DeclarativeBase):
@@ -92,19 +97,12 @@ class Project(Base, TimestampSQLMixin):
     )
 
 
-# FIXME (trb): (Maybe) Flesh out the context. An issue here is that we
-# don't have a strong incentive to expose the fields at a finer level
-# of granularity -- both the backend and the frontend have the
-# "experiment" notion (and they're different notions), and neither
-# would interact with the database (at this time) at any finer
-# granularity than "experiment". So we can go through the exercise of
-# expanding all of the fields and just making the "complicated" ones
-# into JSON data, which will likely result in a more efficient
-# encoding but otherwise simplify nothing (and, indeed, if we expand
-# the array fields into their own tables, it would make the queries
-# much more complex), or we can just use this until a real reason to
-# expand things reveals itself. Note that one can run queries with
-# `.where()` clauses based on JSON fields, see SQLA docs for examples.
+# NOTE (trb): (Front-end) experiment data is completely packed into
+# the JSON 'data' field. I expose an "alias" to the 'name' field
+# because there's a practical use for it, but the other fields are
+# just "at-rest data" for our current purposes. This can be changed,
+# but due to the complexity of the experiment notion, I recommend
+# doing this on an as-needed basis.
 class Experiment(Base, TimestampSQLMixin):
     """Top-level operational concept in FLASK-Copilot. Experiments
     contain all of the execution context.
@@ -262,9 +260,6 @@ class ExperimentMetadataResponse(ExperimentResponseBase):
     )
 
 
-# FIXME (trb): (Maybe) Flesh out the context. See discussion at the
-# Experiment SQL table class above.
-#
 # This is the full experiment data, left in the JSON/dict object. For
 # now, the "name" that gets passed in the ExperimentCreate internally
 # gets wrapped into the "data" dict, hence it not being explicit here.
@@ -278,7 +273,7 @@ class ExperimentResponse(ExperimentResponseBase):
     )
 
 
-# FIXME (trb): (Maybe) Flesh out the context. See discussion at the
-# Experiment SQL table class above.
+# The input dictionary will be *MERGED* with the current experiment
+# data (i.e., `experiment.data = experiment.data | data`)
 class ExperimentUpdate(BaseModel):
     data: dict[str, Any] | None = Field(default=None)
