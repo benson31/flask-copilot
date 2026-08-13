@@ -64,4 +64,5 @@ async def create_experiment(
     session.add(db_experiment)
     await session.commit()
     await session.refresh(db_experiment)
+    await session.refresh(project)
     return db_experiment

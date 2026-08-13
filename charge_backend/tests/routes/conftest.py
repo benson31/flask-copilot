@@ -127,7 +127,6 @@ async def random_experiment(
         experiment=make_random_experiment(),
         project=random_project,
     )
-
     return experiment
 
 
