@@ -9,6 +9,7 @@ import pytest
 import uuid
 
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
@@ -20,6 +21,7 @@ from charge_backend.database.models import (
     ProjectResponse,
     ProjectUpdate,
     ProjectResponseWithExperiments,
+    Experiment,
 )
 
 from utils import (
@@ -52,7 +54,6 @@ async def test_project_create_invalid_name_fails(
 
 
 async def test_project_update(
-    session: AsyncSession,
     client: AsyncClient,
     random_project: Project,
 ):
@@ -72,7 +73,7 @@ async def test_project_update(
 
 
 async def test_project_update_with_bad_data_fails(
-    session: AsyncSession, client: AsyncClient, random_project: Project
+    client: AsyncClient, random_project: Project
 ):
 
     response = await client.put(f"/projects/{random_project.id}", json={"name": 42})
@@ -221,3 +222,122 @@ async def test_delete_project_of_another_user_fails(
     response = await client.delete(f"/projects/{random_project.id}")
 
     assert response.status_code == 403
+
+
+async def test_migrate_projects_all_added(
+    session: AsyncSession,
+    client: AsyncClient,
+):
+
+    # I want these later.
+    project_ids = [uuid.uuid4() for _ in range(2)]
+
+    # Projects come in from the front-end with UUID ids
+    input_projects = [
+        {
+            "name": f"project_{i}",
+            "id": str(proj_id),
+            "experiments": [
+                {
+                    "data": {
+                        "name": f"experiment_{i}_{j}",
+                        "foo": f"some data for experiment_{i}_{j}",
+                    },
+                }
+                for j in range(2)
+            ],
+        }
+        for i, proj_id in enumerate(project_ids)
+    ]
+
+    response = await client.post(f"/projects/migrate", json=input_projects)
+
+    # Check HTTP response
+    assert response.status_code == 200
+
+    result = response.json()
+
+    assert result["ok"] is True
+    assert result["added"] == 2
+
+    # Verify the database
+    stmt = select(Project).where(Project.id.in_(project_ids))
+    db_projects = (await session.scalars(stmt)).all()
+
+    # All expected projects are found.
+    assert len(db_projects) == len(project_ids)
+
+    # Each project has 2 experiments
+    assert all(len(db_proj.experiments) == 2 for db_proj in db_projects)
+
+    # Each experiment has "data.name" and "data.foo"
+    assert all(
+        all(
+            all(k in experiment.data for k in ("name", "foo"))
+            for experiment in project.experiments
+        )
+        for project in db_projects
+    )
+
+
+async def test_migrate_projects_existing_id(
+    session: AsyncSession,
+    client: AsyncClient,
+    random_project: Project,
+    random_experiment: Experiment,
+):
+
+    project_ids = [random_project.id, uuid.uuid4()]
+
+    input_projects = [
+        {
+            "name": f"project_{i}",
+            "id": str(proj_id),
+            "experiments": [
+                {
+                    "data": {
+                        "name": f"experiment_{i}_{j}",
+                        "foo": f"some data for experiment_{i}_{j}",
+                    },
+                }
+                for j in range(2)
+            ],
+        }
+        for i, proj_id in enumerate(project_ids)
+    ]
+
+    response = await client.post(f"/projects/migrate", json=input_projects)
+
+    # Check HTTP response
+    assert response.status_code == 200
+
+    result = response.json()
+
+    assert result["ok"] is True
+    assert result["added"] == 1
+
+    # Verify the database
+    stmt = select(Project).where(Project.id.in_(project_ids))
+    db_projects = (await session.scalars(stmt)).all()
+
+    original_project = next((p for p in db_projects if p.id == random_project.id), None)
+    assert original_project is not None
+    assert original_project.experiments == random_project.experiments
+
+    new_project = next((p for p in db_projects if p.id != random_project.id), None)
+    assert new_project is not None
+    assert all(
+        all(k in experiment.data for k in ("name", "foo"))
+        for experiment in new_project.experiments
+    )
+
+    # Repeat with the same input_projects.
+    response = await client.post(f"/projects/migrate", json=input_projects)
+
+    # Check HTTP response
+    assert response.status_code == 200
+
+    result = response.json()
+
+    assert result["ok"] is True
+    assert result["added"] == 0

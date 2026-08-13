@@ -48,7 +48,6 @@ async def create_project(
 async def migrate_projects(
     *, session: GetSession, projects: List[ProjectMigrate], user: CurrentUser
 ):
-    # FIXME (trb): ADD A TEST FOR THIS
     proj_ids = [project.id for project in projects]
     id_query = select(Project.id).where(Project.id.in_(proj_ids))
     id_query_results = await session.execute(id_query)
