@@ -135,8 +135,19 @@ class ServerDataSource implements ProjectDataSource {
       if (!response.ok) {
         throw new Error(`migrateProjects response status: ${response.status}`);
       }
+
+      // Update any changed IDs to match the backend.
+      const results = await response.json();
+      const id_map = results.new_ids;
+      const final_id_projects = new_id_projects.map(({ id, ...rest }: Project) => {
+        return {
+          id: id in id_map ? id_map[id] : id,
+          ...rest,
+        };
+      });
+
       // Everything is ok, reset the localStorage with new IDs up the localStorage.
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(new_id_projects));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(final_id_projects));
       localStorage.setItem(MIGRATED_KEY, JSON.stringify(true));
     } catch (e) {
       console.error('Error migrating projects from localStorage:', e);
