@@ -221,9 +221,7 @@ class ServerDataSource implements ProjectDataSource {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const ls_projects = JSON.parse(stored);
-        const projects = ls_projects.filter(({ id }: Project) => {
-          projectId != id;
-        });
+        const projects = ls_projects.filter(({ id }: Project) => projectId != id);
 
         localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
       }
