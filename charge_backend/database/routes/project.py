@@ -62,9 +62,6 @@ async def migrate_projects(
     needs_new_id = {p.id: uuid.uuid4() for p in existing_projs if p.user_id != user.id}
     existing_ids = [p.id for p in existing_projs if p.user_id == user.id]
 
-    print(f"** NEEDS_NEW_ID: {needs_new_id}")
-    print(f"** EXISTING IDS: {existing_ids}")
-
     # Filter to ONLY the missing projects. Reassign the id if needed.
     new_projects = [
         p.model_dump(by_alias=False) | {"id": needs_new_id.get(p.id, p.id)}
