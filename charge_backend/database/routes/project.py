@@ -40,28 +40,40 @@ async def create_project(
     return await crud.create_project(session, project, user)
 
 
-# This function will receive a list of projects from the backend. If a
-# project exists in the database already, it will be removed from the
-# list of migrating projects. Any new projects will be created and
-# added to the database.
+# This function will receive a list of projects from the frontend. If
+# a project matches an id in the database associated with the current
+# user, it will be removed from the list of migrating projects. If it
+# matches an id NOT associated with the current user, a new UUID will
+# be generated and it will be left in the list of migrating projects.
+# New projects will be created and added to the database.
 @router.post("/migrate")
 async def migrate_projects(
     *, session: GetSession, projects: List[ProjectMigrate], user: CurrentUser
 ):
     proj_ids = [project.id for project in projects]
-    id_query = select(Project.id).where(Project.id.in_(proj_ids))
+    # Get any matching projects.
+    id_query = select(Project.id, Project.user_id).where(Project.id.in_(proj_ids))
     id_query_results = await session.execute(id_query)
-    existing_ids = set(id_query_results.scalars().all())
+    existing_projs = id_query_results.all()
 
-    # Short-circuit if all ids exist
-    if len(existing_ids) != len(proj_ids):
-        # Filter to ONLY the missing projects.
-        proj_dicts = [
-            project.model_dump(by_alias=False)
-            for project in projects
-            if project.id not in existing_ids
-        ]
+    # Separate the existing IDs into those matching this user vs
+    # inter-user UUID collisions. Projects in the latter category are
+    # still considered valid, but they will get new UUID ids.
+    needs_new_id = {p.id: uuid.uuid4() for p in existing_projs if p.user_id != user.id}
+    existing_ids = [p.id for p in existing_projs if p.user_id == user.id]
 
+    print(f"** NEEDS_NEW_ID: {needs_new_id}")
+    print(f"** EXISTING IDS: {existing_ids}")
+
+    # Filter to ONLY the missing projects. Reassign the id if needed.
+    new_projects = [
+        p.model_dump(by_alias=False) | {"id": needs_new_id.get(p.id, p.id)}
+        for p in projects
+        if p.id not in existing_ids
+    ]
+
+    # Add new project to the database
+    if len(new_projects):
         db_projects = [
             Project(
                 name=proj_dict["name"],
@@ -75,7 +87,7 @@ async def migrate_projects(
                     for experiment_dict in proj_dict["experiments"]
                 ],
             )
-            for proj_dict in proj_dicts
+            for proj_dict in new_projects
         ]
 
         session.add_all(db_projects)
@@ -84,8 +96,14 @@ async def migrate_projects(
     # In the frontend, we call loadProjects way too much, and we will
     # call it right after this endpoint. As such, there's no benefit
     # to sending all that info yet another time, so we just send a
-    # simple confirmation message.
-    return {"ok": True, "added": len(proj_ids) - len(existing_ids)}
+    # simple confirmation message. We do include a map of any old ids
+    # that were mapped to new ids so the frontend can update
+    # appropriately.
+    return {
+        "ok": True,
+        "added": len(new_projects),
+        "new_ids": needs_new_id,
+    }
 
 
 @router.get("", response_model=List[ProjectResponseWithExperiments])

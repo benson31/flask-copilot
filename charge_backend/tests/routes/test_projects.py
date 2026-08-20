@@ -341,3 +341,44 @@ async def test_migrate_projects_existing_id(
 
     assert result["ok"] is True
     assert result["added"] == 0
+
+
+async def test_migrate_projects_existing_id(
+    session: AsyncSession,
+    client: AsyncClient,
+    random_project: Project,
+    random_experiment: Experiment,
+):
+
+    project_ids = [random_project.id, uuid.uuid4()]
+
+    # Now pop over to a new user
+    other_user = await make_new_current_user(session)
+
+    input_projects = [
+        {
+            "name": f"project_{i}",
+            "id": str(proj_id),
+            "experiments": [
+                {
+                    "data": {
+                        "name": f"experiment_{i}_{j}",
+                        "foo": f"some data for experiment_{i}_{j}",
+                    },
+                }
+                for j in range(2)
+            ],
+        }
+        for i, proj_id in enumerate(project_ids)
+    ]
+
+    response = await client.post(f"/projects/migrate", json=input_projects)
+
+    assert response.status_code == 200
+
+    result = response.json()
+
+    assert result["ok"] is True
+    assert result["added"] == 2
+    assert len(result["new_ids"]) == 1
+    assert str(project_ids[0]) in result["new_ids"]
