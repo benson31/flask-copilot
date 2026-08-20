@@ -20,7 +20,7 @@ interface ProjectSidebarProps {
   selection: ProjectSelection;
   onSelectionChange: (selection: ProjectSelection) => void;
   onLoadContext: (projectId: string, experimentId: string | null) => Promise<void>;
-  onSaveContext: () => boolean;
+  onSaveContext: () => Promise<boolean>;
   onReset: () => void;
   isComputing?: boolean; // Track if main app is currently computing
   onCreateProjectAndExperiment?: (
@@ -136,7 +136,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   // Update experiment running status when isComputing changes
   React.useEffect(() => {
     if (selection.projectId && selection.experimentId) {
-      setExperimentRunning(selection.projectId, selection.experimentId, isComputing);
+      void setExperimentRunning(selection.projectId, selection.experimentId, isComputing);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isComputing, selection.projectId, selection.experimentId]);
@@ -183,7 +183,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
     }
 
     // Save before selecting away
-    if (onSaveContext()) onReset();
+    if (await onSaveContext()) onReset();
 
     // Auto-select the last experiment if the project has any
     const lastExperiment =
@@ -210,7 +210,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
     }
 
     // Save before selecting away
-    if (onSaveContext()) onReset();
+    if (await onSaveContext()) onReset();
 
     const newSelection: ProjectSelection = {
       projectId: project.id,
@@ -232,7 +232,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
     const newProjectName = `Project ${timestamp}`;
 
     // Save before selecting away
-    if (onSaveContext()) {
+    if (await onSaveContext()) {
       // Reset UI state
       onReset();
     }
@@ -261,7 +261,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
     }
 
     // Save before selecting away
-    if (onSaveContext()) {
+    if (await onSaveContext()) {
       // Reset UI state
       onReset();
     }

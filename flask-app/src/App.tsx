@@ -931,13 +931,13 @@ const ChemistryTool: React.FC = () => {
     }
   };
 
-  const saveStateToExperiment = useCallback((): boolean => {
+  const saveStateToExperiment = useCallback(async (): Promise<boolean> => {
     // Use the ref directly to always get the latest selection
     const projectId = projectSidebar.selectionRef.current.projectId;
     const experimentId = projectSidebar.selectionRef.current.experimentId;
     console.log('Saving experiments', projectId, experimentId);
     if (projectId && experimentId) {
-      projectManagement.updateExperiment(projectId, syncAndGetContext());
+      await projectManagement.updateExperiment(projectId, syncAndGetContext());
       return true;
     }
     return false;
@@ -1100,7 +1100,7 @@ const ChemistryTool: React.FC = () => {
       socket.send(JSON.stringify({ action: 'get-username' }));
     };
 
-    socket.onmessage = (event: MessageEvent) => {
+    socket.onmessage = async (event: MessageEvent) => {
       let shouldSaveState = false;
       let shouldSyncExperimentContext = false;
       let pdfReferenceToPersist: PdfReferenceMetadata | null | undefined;
@@ -1342,7 +1342,7 @@ const ChemistryTool: React.FC = () => {
         }
       });
       if (shouldSaveState) {
-        saveStateToExperiment();
+        await saveStateToExperiment();
       }
       if (shouldSyncExperimentContext) {
         requestExperimentContextSync();
@@ -1352,7 +1352,7 @@ const ChemistryTool: React.FC = () => {
         const experimentId = projectSidebar.selectionRef.current.experimentId;
         if (projectId && experimentId) {
           try {
-            projectManagement.updateExperiment(projectId, {
+            await projectManagement.updateExperiment(projectId, {
               ...syncAndGetContext(),
               pdfReference: persistedPdfReference(pdfReferenceToPersist),
             });
@@ -1368,7 +1368,7 @@ const ChemistryTool: React.FC = () => {
           const projectId = projectSidebar.selectionRef.current.projectId;
           const experimentId = projectSidebar.selectionRef.current.experimentId;
           if (projectId && experimentId) {
-            projectManagement.updateExperiment(projectId, {
+            await projectManagement.updateExperiment(projectId, {
               ...syncAndGetContext(),
               experimentContext: experimentContextToPersist,
             });
@@ -1675,7 +1675,7 @@ const ChemistryTool: React.FC = () => {
     // Close context menu
     setContextMenu({ node: null, isReaction: false, x: 0, y: 0 });
 
-    saveStateToExperiment();
+    await saveStateToExperiment();
 
     const propertyName =
       propertyType === 'custom' ? customPropertyName : PROPERTY_NAMES[propertyType];
@@ -1709,7 +1709,7 @@ const ChemistryTool: React.FC = () => {
     reset();
     setSmiles(startingSmiles);
     resetProblemType(targetProblemType);
-    saveStateToExperiment();
+    await saveStateToExperiment();
   };
 
   const createNewRetrosynthesisExperiment = async (startingSmiles: string): Promise<void> => {
