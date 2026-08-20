@@ -931,13 +931,13 @@ const ChemistryTool: React.FC = () => {
     }
   };
 
-  const saveStateToExperiment = useCallback((): boolean => {
+  const saveStateToExperiment = useCallback(async (): Promise<boolean> => {
     // Use the ref directly to always get the latest selection
     const projectId = projectSidebar.selectionRef.current.projectId;
     const experimentId = projectSidebar.selectionRef.current.experimentId;
     console.log('Saving experiments', projectId, experimentId);
     if (projectId && experimentId) {
-      projectManagement.updateExperiment(projectId, syncAndGetContext());
+      await projectManagement.updateExperiment(projectId, syncAndGetContext());
       return true;
     }
     return false;
