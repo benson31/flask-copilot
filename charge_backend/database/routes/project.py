@@ -9,9 +9,8 @@ API routes related to FLASK-copilot projects.
 """
 
 import uuid
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from sqlalchemy import select
-from sqlalchemy.orm import Bundle, aliased
 
 from typing import List
 
@@ -20,7 +19,6 @@ from charge_backend.database.deps import GetSession, CurrentUser, ValidatedProje
 from charge_backend.database.models import (
     Project,
     Experiment,
-    ExperimentMetadataResponse,
     ProjectCreate,
     ProjectMigrate,
     ProjectResponse,

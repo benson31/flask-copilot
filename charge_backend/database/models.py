@@ -9,19 +9,17 @@ Definitions of FLASK database interaction models.
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import func, Column, DateTime, ForeignKey, JSON
+from sqlalchemy import func, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import (
     mapped_column,
     relationship,
     DeclarativeBase,
     Mapped,
-    MappedAsDataclass,
-    Session,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
-from typing import Any, List, Optional
+from typing import Any, List
 import uuid
 
 
@@ -135,13 +133,12 @@ class Experiment(Base, TimestampSQLMixin):
     # FIXME (trb): Also consider "index_property" from "sqlalchemy.ext.indexable"
     @hybrid_property
     def name(self) -> str | None:
-        return self.data.get("name")
+        return (self.data or {}).get("name")
 
     @name.setter
     def name(self, value: str) -> None:
-        if self.data is None:
-            self.data = {}
-            self.data["name"] = value
+        # Reassign so SQLA detects the change
+        self.data = {**(self.data or {}), "name": value}
 
     # Make it work in query expressions
     @name.expression

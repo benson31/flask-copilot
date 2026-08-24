@@ -10,6 +10,7 @@ Any CRUD-related operations needed for database interaction.
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
 
 from .models import (
     Experiment,
@@ -34,7 +35,7 @@ async def create_user(session: AsyncSession, user: UserCreate) -> User:
     return db_user
 
 
-async def get_user_by_username(session: AsyncSession, username: str) -> User:
+async def get_user_by_username(session: AsyncSession, username: str) -> Optional[User]:
     statement = select(User).where(User.name == username)
     db_user = await session.scalar(statement)
     return db_user

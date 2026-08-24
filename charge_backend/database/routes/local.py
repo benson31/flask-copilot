@@ -15,7 +15,6 @@ API routes for FLASK-copilot local development and testing.
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from charge_backend.database import crud
@@ -27,7 +26,6 @@ from charge_backend.database.models import (
     Project,
     ProjectMetadataResponse,
     ProjectResponseWithExperiments,
-    User,
     UserCreate,
     UserResponse,
 )

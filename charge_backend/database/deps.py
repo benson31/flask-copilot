@@ -10,7 +10,6 @@ FastAPI dependency injection for database operations.
 
 import uuid
 from fastapi import Depends, Header, HTTPException
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated
 

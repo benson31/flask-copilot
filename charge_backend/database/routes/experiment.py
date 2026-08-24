@@ -9,12 +9,10 @@ API routes related to FLASK-copilot experiments.
 """
 
 from fastapi import APIRouter
-from typing import List
 
 from charge_backend.database import crud
 from charge_backend.database.deps import (
     GetSession,
-    CurrentUser,
     ValidatedProject,
     ValidatedExperiment,
 )
@@ -36,7 +34,7 @@ async def create_experiment(
     session: GetSession,
     experiment: ExperimentCreate,
     validated_project: ValidatedProject,
-):
+) -> Experiment:
     return await crud.create_experiment(session, experiment, validated_project)
 
 
@@ -57,7 +55,7 @@ async def update_experiment(
     session: GetSession,
     db_experiment: ValidatedExperiment,
     exp_update: ExperimentUpdate,
-):
+) -> Experiment:
     update_dict = exp_update.model_dump(by_alias=False, exclude_unset=True)
 
     if "data" in update_dict:

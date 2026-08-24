@@ -13,11 +13,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from charge_backend.database.routes.project import create_project
 from charge_backend.database.models import (
     User,
     Project,
-    ProjectCreate,
     ProjectResponse,
     ProjectUpdate,
     ProjectResponseWithExperiments,
@@ -27,8 +25,6 @@ from charge_backend.database.models import (
 from utils import (
     make_new_current_user,
     make_random_project,
-    make_random_user,
-    set_current_test_user,
 )
 
 
@@ -343,7 +339,7 @@ async def test_migrate_projects_existing_id(
     assert result["added"] == 0
 
 
-async def test_migrate_projects_existing_id(
+async def test_migrate_projects_uuid_collision(
     session: AsyncSession,
     client: AsyncClient,
     random_project: Project,

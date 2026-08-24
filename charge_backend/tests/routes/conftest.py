@@ -10,17 +10,13 @@ Fixtures for database API route testing
 
 import pytest
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.pool import StaticPool
 from typing import List
 
 from charge_backend.charge_server import app
 from charge_backend.database import crud
 from charge_backend.database.models import Base, User, Project, Experiment
-from charge_backend.database.routes import local, project, experiment
 from charge_backend.database.deps import get_session, get_current_user
 
 from httpx import ASGITransport, AsyncClient

@@ -62,7 +62,7 @@ class FlaskDbSettings(BaseSettings):
 
     @computed_field
     @property
-    def mariadb_uri() -> MariaDbAsyncDsn:
+    def mariadb_uri(self) -> MariaDbAsyncDsn:
         return MariaDbAsyncDsn.build(
             host=self.mariadb_host,
             password=self.mariadb_password,
