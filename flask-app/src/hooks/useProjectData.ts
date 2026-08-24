@@ -95,6 +95,24 @@ const httpServerUrl = HTTP_SERVER;
 class ServerDataSource implements ProjectDataSource {
   private readonly mutex: Mutex = new Mutex();
 
+  // Serializes reads and writes per experiment. WebSocket handlers and UI
+  // callbacks can overlap in time; without this, two PUTs to the same
+  // experiment can land out of order (stale last-writer-wins), and a GET
+  // during an in-flight PUT can return pre-write data. async-mutex wakes
+  // waiters in FIFO order, so operations land in call order. Entries are
+  // never removed: evicting a lock while a caller still waits on it would
+  // let a later call mint a fresh mutex and race the old waiter.
+  private readonly experimentLocks: Map<string, Mutex> = new Map();
+
+  private lockFor(experimentId: string): Mutex {
+    let lock = this.experimentLocks.get(experimentId);
+    if (!lock) {
+      lock = new Mutex();
+      this.experimentLocks.set(experimentId, lock);
+    }
+    return lock;
+  }
+
   async migrateProjectsFromLocalStorage(): Promise<void> {
     const stored = localStorage.getItem(STORAGE_KEY);
     // Nothing to migrate
@@ -240,46 +258,55 @@ class ServerDataSource implements ProjectDataSource {
   }
 
   async loadExperiment(projectId: string, experimentId: string): Promise<Experiment> {
-    const response = await fetch(
-      `${httpServerUrl}/projects/${projectId}/experiments/${experimentId}`
-    );
-    if (!response.ok) {
-      throw new Error(`createExperiment response status: ${response.status}`);
-    }
-    const result = await response.json();
-    // Unpack the data from the response message
-    const experiment = result.data;
+    return this.lockFor(experimentId).runExclusive(async () => {
+      const response = await fetch(
+        `${httpServerUrl}/projects/${projectId}/experiments/${experimentId}`
+      );
+      if (!response.ok) {
+        throw new Error(`loadExperiment response status: ${response.status}`);
+      }
+      const result = await response.json();
+      // Unpack the data from the response message
+      const experiment = result.data;
 
-    return experiment;
+      return experiment;
+    });
   }
 
   async updateExperiment(projectId: string, experiment: ExperimentUpdate): Promise<void> {
-    const response = await fetch(
-      `${httpServerUrl}/projects/${projectId}/experiments/${experiment.id}`,
-      {
-        method: 'PUT',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data: experiment }),
-      }
-    );
-    if (!response.ok) {
-      throw new Error(`updateExperiment response status: ${response.status}`);
+    if (!experiment.id) {
+      throw new Error('updateExperiment: experiment.id is required');
     }
+    return this.lockFor(experiment.id).runExclusive(async () => {
+      const response = await fetch(
+        `${httpServerUrl}/projects/${projectId}/experiments/${experiment.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ data: experiment }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`updateExperiment response status: ${response.status}`);
+      }
+    });
   }
 
   async deleteExperiment(projectId: string, experimentId: string): Promise<void> {
-    const response = await fetch(
-      `${httpServerUrl}/projects/${projectId}/experiments/${experimentId}`,
-      {
-        method: 'DELETE',
+    return this.lockFor(experimentId).runExclusive(async () => {
+      const response = await fetch(
+        `${httpServerUrl}/projects/${projectId}/experiments/${experimentId}`,
+        {
+          method: 'DELETE',
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`deleteExperiment response status: ${response.status}`);
       }
-    );
-    if (!response.ok) {
-      throw new Error(`deleteExperiment response status: ${response.status}`);
-    }
+    });
   }
 
   async setExperimentRunning(
