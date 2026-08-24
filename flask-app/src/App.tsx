@@ -937,8 +937,12 @@ const ChemistryTool: React.FC = () => {
     const experimentId = projectSidebar.selectionRef.current.experimentId;
     console.log('Saving experiments', projectId, experimentId);
     if (projectId && experimentId) {
-      await projectManagement.updateExperiment(projectId, syncAndGetContext());
-      return true;
+      try {
+        await projectManagement.updateExperiment(projectId, syncAndGetContext());
+        return true;
+      } catch (e) {
+        console.error('Error in saveStateToExperiment:', e);
+      }
     }
     return false;
   }, [projectSidebar.selectionRef, projectManagement, getContext]);
@@ -1089,8 +1093,11 @@ const ChemistryTool: React.FC = () => {
       // Now send other messages after the initial settings handshake
       reset(); // Server state must match UI state
 
-      await loadStateFromCurrentExperiment();
-
+      try {
+        await loadStateFromCurrentExperiment();
+      } catch (e) {
+        console.error('Failed to load current experiment:', e);
+      }
       // NOTE: We don't send orchestrator settings again here because:
       // 1. The handshake above already sent full settings (backend, model, API key, customUrl)
       // 2. Backend will validate and respond with server-update-orchestrator-settings
@@ -1368,10 +1375,14 @@ const ChemistryTool: React.FC = () => {
           const projectId = projectSidebar.selectionRef.current.projectId;
           const experimentId = projectSidebar.selectionRef.current.experimentId;
           if (projectId && experimentId) {
-            await projectManagement.updateExperiment(projectId, {
-              ...syncAndGetContext(),
-              experimentContext: experimentContextToPersist,
-            });
+            try {
+              await projectManagement.updateExperiment(projectId, {
+                ...syncAndGetContext(),
+                experimentContext: experimentContextToPersist,
+              });
+            } catch (e) {
+              console.error('Failed to update Experiment:', e);
+            }
           }
         }
       }

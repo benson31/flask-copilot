@@ -36,11 +36,11 @@ export interface ExperimentUpdate {
 // This interface defines the contract for data sources (local storage, database, etc.)
 interface ProjectDataSource {
   loadProjects: () => Promise<Project[]>;
-  createProject: (name: string) => Promise<Project | null>;
+  createProject: (name: string) => Promise<Project>;
   updateProject: (projectId: string, newName: string) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
-  createExperiment: (projectId: string, name: string) => Promise<Experiment | null>;
-  loadExperiment: (projectId: string, experimentId: string) => Promise<Experiment | null>;
+  createExperiment: (projectId: string, name: string) => Promise<Experiment>;
+  loadExperiment: (projectId: string, experimentId: string) => Promise<Experiment>;
   updateExperiment: (projectId: string, experiment: ExperimentUpdate) => Promise<void>;
   deleteExperiment: (projectId: string, experimentId: string) => Promise<void>;
   setExperimentRunning: (
@@ -54,10 +54,10 @@ export interface ProjectData {
   projectsRef: React.RefObject<Project[]>;
   projects: Project[];
   loading: boolean;
-  createProject: (name: string) => Promise<Project | null>;
+  createProject: (name: string) => Promise<Project>;
   updateProject: (projectId: string, newName: string) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
-  createExperiment: (projectId: string, name: string) => Promise<Experiment | null>;
+  createExperiment: (projectId: string, name: string) => Promise<Experiment>;
   updateExperiment: (projectId: string, experiment: Experiment) => Promise<void>;
   deleteExperiment: (projectId: string, experimentId: string) => Promise<void>;
   setExperimentRunning: (
@@ -156,165 +156,129 @@ class ServerDataSource implements ProjectDataSource {
   }
 
   async loadProjects(): Promise<Project[]> {
-    try {
-      // FIXME (trb): Perhaps there's a better spot to hook this is
-      // in?? It will short-circuit, but ugh.
-      await this.mutex.runExclusive(async () => {
-        const migrateDone = localStorage.getItem(MIGRATED_KEY);
-        if (!migrateDone) {
-          await this.migrateProjectsFromLocalStorage();
-        }
-      });
-
-      const response = await fetch(`${httpServerUrl}/projects/meta`);
-      if (!response.ok) {
-        throw new Error(`loadProjects response status: ${response.status}`);
+    // FIXME (trb): Perhaps there's a better spot to hook this is
+    // in?? It will short-circuit, but ugh.
+    await this.mutex.runExclusive(async () => {
+      const migrateDone = localStorage.getItem(MIGRATED_KEY);
+      if (!migrateDone) {
+        await this.migrateProjectsFromLocalStorage();
       }
-      return flattenProjects(await response.json());
-    } catch (e) {
-      console.error('Error loading projects from server:', e);
-      return [];
+    });
+
+    const response = await fetch(`${httpServerUrl}/projects/meta`);
+    if (!response.ok) {
+      throw new Error(`loadProjects response status: ${response.status}`);
     }
+    return flattenProjects(await response.json());
   }
 
-  async createProject(name: string): Promise<Project | null> {
-    try {
-      const response = await fetch(`${httpServerUrl}/projects`, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: name,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error(`createProject response status: ${await response.text()}`);
-      }
-      const project = await response.json();
-      return project;
-    } catch (e) {
-      console.error('Error creating project:', e);
-      return null;
+  async createProject(name: string): Promise<Project> {
+    const response = await fetch(`${httpServerUrl}/projects`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: name,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`createProject response status: ${await response.text()}`);
     }
+    const project = await response.json();
+    return project;
   }
 
   async updateProject(projectId: string, newName: string): Promise<void> {
-    try {
-      // First we update the project metadata
-      const response = await fetch(`${httpServerUrl}/projects/${projectId}`, {
+    // First we update the project metadata
+    const response = await fetch(`${httpServerUrl}/projects/${projectId}`, {
+      method: 'PUT',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: newName }),
+    });
+    if (!response.ok) {
+      throw new Error(`updateProject response status: ${response.status}`);
+    }
+  }
+
+  async deleteProject(projectId: string): Promise<void> {
+    const response = await fetch(`${httpServerUrl}/projects/${projectId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error(`deleteProject response status: ${response.status}`);
+    }
+
+    // Remove from LocalStorage
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const ls_projects = JSON.parse(stored);
+      const projects = ls_projects.filter(({ id }: Project) => projectId != id);
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    }
+  }
+
+  async createExperiment(projectId: string, name: string): Promise<Experiment> {
+    const response = await fetch(`${httpServerUrl}/projects/${projectId}/experiments`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: name }),
+    });
+    if (!response.ok) {
+      throw new Error(`createExperiment response status: ${response.status}`);
+    }
+    const result = await response.json();
+    return result;
+  }
+
+  async loadExperiment(projectId: string, experimentId: string): Promise<Experiment> {
+    const response = await fetch(
+      `${httpServerUrl}/projects/${projectId}/experiments/${experimentId}`
+    );
+    if (!response.ok) {
+      throw new Error(`createExperiment response status: ${response.status}`);
+    }
+    const result = await response.json();
+    // Unpack the data from the response message
+    const experiment = result.data;
+
+    return experiment;
+  }
+
+  async updateExperiment(projectId: string, experiment: ExperimentUpdate): Promise<void> {
+    const response = await fetch(
+      `${httpServerUrl}/projects/${projectId}/experiments/${experiment.id}`,
+      {
         method: 'PUT',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: newName }),
-      });
-      if (!response.ok) {
-        throw new Error(`updateProject response status: ${response.status}`);
+        body: JSON.stringify({ data: experiment }),
       }
-    } catch (e) {
-      console.error('Error updating project:', e);
-    }
-  }
-
-  async deleteProject(projectId: string): Promise<void> {
-    try {
-      const response = await fetch(`${httpServerUrl}/projects/${projectId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error(`deleteProject response status: ${response.status}`);
-      }
-
-      // Remove from LocalStorage
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const ls_projects = JSON.parse(stored);
-        const projects = ls_projects.filter(({ id }: Project) => projectId != id);
-
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-      }
-    } catch (e) {
-      console.error('Error deleting project:', e);
-    }
-  }
-
-  async createExperiment(projectId: string, name: string): Promise<Experiment | null> {
-    try {
-      const response = await fetch(`${httpServerUrl}/projects/${projectId}/experiments`, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name: name }),
-      });
-      if (!response.ok) {
-        throw new Error(`createExperiment response status: ${response.status}`);
-      }
-      const result = await response.json();
-      return result;
-    } catch (e) {
-      console.error('Error creating experiment:', e);
-    }
-    return null;
-  }
-
-  async loadExperiment(projectId: string, experimentId: string): Promise<Experiment | null> {
-    try {
-      const response = await fetch(
-        `${httpServerUrl}/projects/${projectId}/experiments/${experimentId}`
-      );
-      if (!response.ok) {
-        throw new Error(`createExperiment response status: ${response.status}`);
-      }
-      const result = await response.json();
-      // Unpack the data from the response message
-      const experiment = result.data;
-
-      return experiment;
-    } catch (e) {
-      console.error('Error creating experiment:', e);
-    }
-    return null;
-  }
-
-  async updateExperiment(projectId: string, experiment: ExperimentUpdate): Promise<void> {
-    try {
-      const response = await fetch(
-        `${httpServerUrl}/projects/${projectId}/experiments/${experiment.id}`,
-        {
-          method: 'PUT',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ data: experiment }),
-        }
-      );
-      if (!response.ok) {
-        throw new Error(`updateExperiment response status: ${response.status}`);
-      }
-    } catch (e) {
-      console.error('Error updating experiment:', e);
+    );
+    if (!response.ok) {
+      throw new Error(`updateExperiment response status: ${response.status}`);
     }
   }
 
   async deleteExperiment(projectId: string, experimentId: string): Promise<void> {
-    try {
-      const response = await fetch(
-        `${httpServerUrl}/projects/${projectId}/experiments/${experimentId}`,
-        {
-          method: 'DELETE',
-        }
-      );
-      if (!response.ok) {
-        throw new Error(`deleteExperiment response status: ${response.status}`);
+    const response = await fetch(
+      `${httpServerUrl}/projects/${projectId}/experiments/${experimentId}`,
+      {
+        method: 'DELETE',
       }
-    } catch (e) {
-      console.error('Error deleting experiment:', e);
+    );
+    if (!response.ok) {
+      throw new Error(`deleteExperiment response status: ${response.status}`);
     }
   }
 
@@ -337,6 +301,7 @@ class ServerDataSource implements ProjectDataSource {
 // }
 
 // Hook for managing project data
+const dataSource: ProjectDataSource = new ServerDataSource();
 export const useProjectData = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -345,9 +310,6 @@ export const useProjectData = () => {
   useEffect(() => {
     projectsRef.current = projects;
   }, [projects]);
-
-  // TODO(later): Swap this to use ServerDataSource
-  const dataSource: ProjectDataSource = new ServerDataSource();
 
   useEffect(() => {
     loadProjects();
@@ -366,7 +328,7 @@ export const useProjectData = () => {
     }
   };
 
-  const createProject = async (name: string): Promise<Project | null> => {
+  const createProject = async (name: string): Promise<Project> => {
     const newProject = await dataSource.createProject(name);
     await loadProjects();
     return newProject;
@@ -382,16 +344,13 @@ export const useProjectData = () => {
     await loadProjects();
   };
 
-  const createExperiment = async (projectId: string, name: string): Promise<Experiment | null> => {
+  const createExperiment = async (projectId: string, name: string): Promise<Experiment> => {
     const newExperiment = await dataSource.createExperiment(projectId, name);
     await loadProjects();
     return newExperiment;
   };
 
-  const loadExperiment = async (
-    projectId: string,
-    experimentId: string
-  ): Promise<Experiment | null> => {
+  const loadExperiment = async (projectId: string, experimentId: string): Promise<Experiment> => {
     const experiment = await dataSource.loadExperiment(projectId, experimentId);
     return experiment;
   };
