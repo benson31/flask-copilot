@@ -8,7 +8,7 @@
 Settings controlling various aspects of SQL database interaction.
 """
 
-from pydantic import computed_field, AnyUrl, UrlConstraints
+from pydantic import computed_field, AnyUrl, Field, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from typing import Annotated, Literal
@@ -47,7 +47,9 @@ class FlaskDbSettings(BaseSettings):
 
     # Currently this is only used to remove some endpoints from the
     # API; may have other uses down the road?
-    environment: Literal["deploy", "local"] = "local"
+    environment: Literal["deploy", "local"] = Field(
+        alias="flask_environment", default="local"
+    )
 
     # Controls whether SQLAlchemy echos SQL to stderr.
     verbose_sql: bool = False
