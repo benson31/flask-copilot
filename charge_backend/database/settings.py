@@ -8,6 +8,8 @@
 Settings controlling various aspects of SQL database interaction.
 """
 
+from pathlib import Path
+
 from pydantic import computed_field, AnyUrl, Field, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -40,7 +42,7 @@ MariaDbAsyncDsn = Annotated[
 
 class FlaskDbSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file="charge_backend/db_settings.env",
+        env_file=Path(__file__).parent.parent / "db_settings.env",
         env_ignore_empty=True,
         extra="ignore",
     )
@@ -52,7 +54,7 @@ class FlaskDbSettings(BaseSettings):
     )
 
     # Controls whether SQLAlchemy echos SQL to stderr.
-    verbose_sql: bool = False
+    verbose_sql: bool = Field(alias="flask_verbose_sql", default=False)
 
     # MariaDB stuff ("deploy" env only)
     mariadb_host: str = ""
@@ -75,7 +77,9 @@ class FlaskDbSettings(BaseSettings):
         )
 
     # SQLite config ("local" or "test")
-    sqlite_uri: AnyUrl = "sqlite+aiosqlite:///changeme-database.db"
+    sqlite_uri: AnyUrl = Field(
+        alias="flask_sqlite_uri", default="sqlite+aiosqlite:///changeme-database.db"
+    )
 
     @computed_field
     @property
