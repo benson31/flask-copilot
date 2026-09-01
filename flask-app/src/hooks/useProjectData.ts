@@ -1,5 +1,5 @@
 import { Mutex } from 'async-mutex';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Project, Experiment } from '../types';
 import { validate as isValidUUID, version as getUUIDVersion, v4 as uuidv4 } from 'uuid';
 
@@ -331,29 +331,39 @@ class ServerDataSource implements ProjectDataSource {
 const dataSource: ProjectDataSource = new ServerDataSource();
 export const useProjectData = () => {
   const [projects, setProjects] = useState<Project[]>([]);
+  // Only replace the project tree with its loading state during initial hydration.
+  // Subsequent reads refresh the existing tree in place so saves and run-status
+  // updates do not make the sidebar disappear and reappear.
   const [loading, setLoading] = useState(true);
+  const latestLoadRef = useRef(0);
 
   const projectsRef = useRef(projects);
   useEffect(() => {
     projectsRef.current = projects;
   }, [projects]);
 
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  const loadProjects = async () => {
-    setLoading(true);
+  const loadProjects = useCallback(async () => {
+    const loadId = ++latestLoadRef.current;
     try {
       const data = await dataSource.loadProjects();
-      setProjects(data);
-      projectsRef.current = data;
+      // Metadata refreshes may overlap. Do not let an older response overwrite
+      // a newer snapshot of the project list.
+      if (loadId === latestLoadRef.current) {
+        setProjects(data);
+        projectsRef.current = data;
+      }
     } catch (error) {
       console.error('Error loading projects:', error);
     } finally {
-      setLoading(false);
+      if (loadId === latestLoadRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void loadProjects();
+  }, [loadProjects]);
 
   const createProject = async (name: string): Promise<Project> => {
     const newProject = await dataSource.createProject(name);
