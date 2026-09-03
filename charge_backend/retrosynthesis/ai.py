@@ -17,6 +17,7 @@ from charge_backend.prompt_debugger import debug_prompt
 from charge_backend.flask_experiment import FlaskExperiment, GraphContext
 from charge_backend.moleculedb.molecule_naming import (
     smiles_to_html,
+    smiles_preferred_name,
 )
 from charge_backend.retrosynthesis.template import (
     generate_nodes_for_molecular_graph,
@@ -28,6 +29,9 @@ from charge_backend.moleculedb.purchasable import (
 )
 from charge_backend.retrosynthesis.mapping import build_mapped_reaction_dict_or_none
 from charge_backend.retrosynthesis.database import find_exact_reactions
+from charge_backend.retrosynthesis.functional_groups import (
+    functional_groups_from_smiles,
+)
 
 from charge_backend.retrosynthesis.retrosynthesis_task import (
     TemplateFreeRetrosynthesisTask as RetrosynthesisTask,
@@ -36,29 +40,38 @@ from charge_backend.retrosynthesis.retrosynthesis_task import (
 
 from lc_conductor import ToolRuntime
 
+RETROSYNTH_PROMPT_TEMPLATE = """You are a chemistry retrosynthesis assistant. Perform single-step retrosynthesis only.
 
-RETROSYNTH_UNCONSTRAINED_USER_PROMPT_TEMPLATE = (
-    "Provide a retrosynthetic pathway for the target molecule `{target_molecule}`. "
-    + "If there are `*`, the `*` indicate the boundaries of the polymer repeat unit."
-    + "The pathway should be provided as a tuple of reactants as SMILES and the product as SMILES. "
-    + "Perform only single step retrosynthesis. Make sure the SMILES strings are valid. "
-    + "Use tools to verify the SMILES strings and diagnose any issues that arise."
-    + "Do the evaluation step-by-step. Propose a retrosynthetic step, then evaluate it. "
-    + "If the evaluation fails, propose a new retrosynthetic step and evaluate it again. "
-    + "Find the best possible retrosynthetic step, and use tools to see if the "
-    + "proposed reactants are synthesizable. "
-)
+Target:
+- Preferred Name: {preferred_name}
+- SMILES: `{smiles}`
+- Functional Groups: {fgs}
+- Polymer rule: if `*` appears, it marks polymer repeat-unit boundaries
 
-RETROSYNTH_CONSTRAINED_USER_PROMPT_TEMPLATE = (
-    "Provide a retrosynthetic pathway for the target molecule `{target_molecule}`. "
-    + "If there are `*`, the `*` indicate the boundaries of the polymer repeat unit."
-    + "The pathway should be provided as a tuple of reactants as SMILES and the product as SMILES. "
-    + "Perform only single step retrosynthesis. Make sure the SMILES strings are valid. "
-    + "Use tools to verify the SMILES strings and diagnose any issues that arise. "
-    + "The following reactant cannot be used in the retrosynthetic step: {constrained_reactant}. "
-    + "Do the evaluation step-by-step. Propose a retrosynthetic step, then evaluate it. "
-    + "If the evaluation fails, propose a new retrosynthetic step and evaluate it again. "
-)
+Task:
+Find the best-ranked one-step retrosynthetic path to the target.
+
+Requirements:
+1. Identify the key bond formation, functional group transformation, or disconnection that most directly explains the target.
+2. Propose candidate reactants for a single retrosynthetic step.
+3. Verify that each proposed reactant SMILES is syntactically valid.
+4. Check whether the proposed reactants are chemically plausible and reasonably synthesizable.
+5. Evaluate the implied forward reaction using available tools and chemical reasoning. 
+The reactants should regenerate the target in one step without adding, deleting, 
+or rearranging unrelated atoms. In particular, if `predict_reaction_products` is available, 
+use it to predict products from the proposed reactants, then canonicalize and compare the predicted product with the target. 
+If prediction tools are unavailable, perform the same forward-product equivalence check using chemical reasoning.
+6. If a candidate fails validation or there is any inconsistency, diagnose and log the issue, then try another candidate.
+7. Choose the best validated step according to the ranking criteria below.
+8. Return the selected reactants and regenerated product as SMILES.
+
+Ranking criteria:
+- exact or near-exact forward-product equivalence to target
+- chemical plausibility
+- reactants are buyable, or can be reduced to buyable precursors in few plausible steps
+- one-step feasibility
+
+"""
 
 
 async def ai_based_retrosynthesis(
@@ -109,17 +122,21 @@ async def ai_based_retrosynthesis(
         callback_handler.agent_key = agent_key
         callback_handler.on_agent_update = history_callback
 
+    preferred_name = smiles_preferred_name(current_node.smiles)
+    functional_groups = functional_groups_from_smiles(current_node.smiles)
+
+    user_prompt = RETROSYNTH_PROMPT_TEMPLATE.format(
+        preferred_name=preferred_name,
+        smiles=current_node.smiles,
+        fgs=", ".join(functional_groups) if functional_groups else "None",
+    )
+
     if constraint:
-        user_prompt = RETROSYNTH_CONSTRAINED_USER_PROMPT_TEMPLATE.format(
-            target_molecule=current_node.smiles,
-            constrained_reactant=constraint,
-        )
-    else:
-        user_prompt = RETROSYNTH_UNCONSTRAINED_USER_PROMPT_TEMPLATE.format(
-            target_molecule=current_node.smiles
+        user_prompt += (
+            f"\n\nConstraint - The following reactants cannot be used in the retrosynthetic step: "
+            f"{constraint}."
         )
 
-    user_prompt += "\nDouble check the reactants with the `predict_reaction_products` tool to see if the products are equivalent to the given product. If there is any inconsistency (canonicalize both sides of the equation first), log it and try some other set of reactants."
     if query is not None:
         user_prompt += (
             f"\n\nAdditionally, adhere to the following requirements:\n{query}\n\n"
